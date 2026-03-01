@@ -1,6 +1,7 @@
 from gi.repository import Gtk, Adw, GObject, GLib, Pango, Gio, Gdk
 import threading
 from api.client import MusicClient
+from ui.utils import AsyncImage, LikeButton, parse_item_metadata
 
 
 class SearchPage(Adw.Bin):
@@ -197,10 +198,14 @@ class SearchPage(Adw.Bin):
         if not items:
             return
 
+        # Wrap label and listbox in a box to control spacing
+        section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        parent_box.append(section_box)
+
         label = Gtk.Label(label=title)
         label.add_css_class("heading")
         label.set_halign(Gtk.Align.START)
-        parent_box.append(label)
+        section_box.append(label)
 
         list_box = Gtk.ListBox()
         list_box.add_css_class("boxed-list")
@@ -252,13 +257,19 @@ class SearchPage(Adw.Bin):
             thumbnails = item.get("thumbnails", [])
             thumb_url = thumbnails[-1]["url"] if thumbnails else None
 
-            from ui.utils import AsyncImage, LikeButton
-
             img = AsyncImage(url=thumb_url, size=40)
             if not thumb_url:
                 img.set_from_icon_name("media-optical-symbolic")
 
             row.add_prefix(img)
+
+            # Explicit Badge
+            meta = parse_item_metadata(item)
+            if meta["is_explicit"]:
+                explicit_badge = Gtk.Label(label="E")
+                explicit_badge.add_css_class("explicit-badge")
+                explicit_badge.set_valign(Gtk.Align.CENTER)
+                row.add_suffix(explicit_badge)
 
             # Like Button
             if item.get("videoId"):
@@ -278,7 +289,7 @@ class SearchPage(Adw.Bin):
 
             list_box.append(row)
 
-        parent_box.append(list_box)
+        section_box.append(list_box)
 
     def on_external_search(self, text):
         if self.search_timer:
@@ -628,11 +639,42 @@ class SearchPage(Adw.Bin):
         action_goto.connect("activate", goto_artist_action)
         group.add_action(action_goto)
 
+        # Add to Playlist
+        def add_to_playlist_action(action, param):
+            target_pid = param.get_string()
+            target_vid = data.get("videoId")
+            if target_pid and target_vid:
+
+                def thread_func():
+                    success = self.client.add_playlist_items(target_pid, [target_vid])
+                    if success:
+                        print(f"Added {target_vid} to {target_pid}")
+                    else:
+                        print(f"Failed to add {target_vid} to {target_pid}")
+
+                threading.Thread(target=thread_func, daemon=True).start()
+
+        action_add = Gio.SimpleAction.new("add_to_playlist", GLib.VariantType.new("s"))
+        action_add.connect("activate", add_to_playlist_action)
+        group.add_action(action_add)
+
         # Build Menu Model
         menu_model = Gio.Menu()
 
         if url:
             menu_model.append("Copy Link", "row.copy_link")
+
+        # Add to Playlist Submenu
+        if "videoId" in data:
+            playlists = self.client.get_editable_playlists()
+            if playlists:
+                playlist_menu = Gio.Menu()
+                for p in playlists:
+                    p_title = p.get("title", "Unknown Playlist")
+                    p_id = p.get("playlistId")
+                    if p_id:
+                        playlist_menu.append(p_title, f"row.add_to_playlist('{p_id}')")
+                menu_model.append_submenu("Add to Playlist", playlist_menu)
 
         has_artist = False
         if "artists" in data and data["artists"] and data["artists"][0].get("id"):

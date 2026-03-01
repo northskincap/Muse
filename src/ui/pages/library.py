@@ -29,46 +29,62 @@ class LibraryPage(Adw.Bin):
         clamp.set_child(self.content_box)
         scrolled.set_child(clamp)
 
-        # 1. Playlists Section Header
+        # 1. Playlists Section
+        playlists_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
         playlists_header_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL, spacing=12
         )
-        playlists_header_box.set_margin_bottom(8)
+        playlists_header_box.set_size_request(
+            -1, 34
+        )  # Ensure consistent height with/without button
 
         playlists_label = Gtk.Label(label="Playlists")
         playlists_label.add_css_class("heading")
         playlists_label.set_halign(Gtk.Align.START)
+        playlists_label.set_valign(Gtk.Align.CENTER)
         playlists_label.set_hexpand(True)
         playlists_header_box.append(playlists_label)
 
         self.new_playlist_btn = Gtk.Button(icon_name="list-add-symbolic")
         self.new_playlist_btn.add_css_class("flat")
         self.new_playlist_btn.add_css_class("circular")
+        self.new_playlist_btn.set_valign(Gtk.Align.CENTER)
         self.new_playlist_btn.set_tooltip_text("New Playlist")
         self.new_playlist_btn.connect("clicked", self.on_new_playlist_clicked)
         playlists_header_box.append(self.new_playlist_btn)
 
-        self.content_box.append(playlists_header_box)
+        playlists_section.append(playlists_header_box)
 
         self.playlists_list = Gtk.ListBox()
         self.playlists_list.set_selection_mode(Gtk.SelectionMode.NONE)
         self.playlists_list.add_css_class("boxed-list")
         self.playlists_list.connect("row-activated", self.on_playlist_activated)
-        self.content_box.append(self.playlists_list)
+        playlists_section.append(self.playlists_list)
+
+        self.content_box.append(playlists_section)
 
         # 2. Artists Section
+        artists_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
+        artists_header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        artists_header_box.set_size_request(-1, 34)
+
         artists_label = Gtk.Label(label="Artists")
         artists_label.add_css_class("heading")
         artists_label.set_halign(Gtk.Align.START)
-        artists_label.set_margin_top(12)
-        artists_label.set_margin_bottom(8)
-        self.content_box.append(artists_label)
+        artists_label.set_valign(Gtk.Align.CENTER)
+        artists_header_box.append(artists_label)
+
+        artists_section.append(artists_header_box)
 
         self.artists_list = Gtk.ListBox()
         self.artists_list.set_selection_mode(Gtk.SelectionMode.NONE)
         self.artists_list.add_css_class("boxed-list")
         self.artists_list.connect("row-activated", self.on_artist_activated)
-        self.content_box.append(self.artists_list)
+        artists_section.append(self.artists_list)
+
+        self.content_box.append(artists_section)
 
         # We keep a Stack for compatibility or potential future detail views,
         # but the main library is now on a single page.

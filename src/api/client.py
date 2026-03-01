@@ -66,6 +66,7 @@ class MusicClient:
         self._playlist_cache = {}  # Cache fully-fetched playlists
         self._user_info = None  # Cache for account info
         self._subscribed_artists = set()  # Set of channel IDs
+        self._library_playlists = []  # Cache for editable playlists
         self.try_login()
 
     def try_login(self):
@@ -281,7 +282,9 @@ class MusicClient:
     def get_library_playlists(self):
         if not self.is_authenticated():
             return []
-        return self.api.get_library_playlists()
+        playlists = self.api.get_library_playlists()
+        self._library_playlists = playlists
+        return playlists
 
     def get_library_subscriptions(self, limit=None):
         if not self.is_authenticated():
@@ -405,6 +408,15 @@ class MusicClient:
             print(f"Error getting artist details: {e}")
             return None
 
+    def get_artist_albums(self, channel_id, params=None, limit=100):
+        if not self.api:
+            return []
+        try:
+            return self.api.get_artist_albums(channel_id, params=params, limit=limit)
+        except Exception as e:
+            print(f"Error getting artist albums: {e}")
+            return []
+
     def get_liked_songs(self, limit=100):
         if not self.is_authenticated():
             return []
@@ -499,6 +511,85 @@ class MusicClient:
         except Exception as e:
             print(f"Error deleting playlist: {e}")
             return False
+
+    def add_playlist_items(self, playlist_id, video_ids, duplicates=False):
+        if not self.is_authenticated():
+            return False
+        try:
+            self.api.add_playlist_items(playlist_id, video_ids, duplicates=duplicates)
+            return True
+        except Exception as e:
+            print(f"Error adding to playlist: {e}")
+            return False
+
+    def remove_playlist_items(self, playlist_id, videos):
+        if not self.is_authenticated():
+            return False
+        try:
+            self.api.remove_playlist_items(playlist_id, videos)
+            return True
+        except Exception as e:
+            print(f"Error removing from playlist: {e}")
+            return False
+
+    def get_editable_playlists(self):
+        """
+        Returns a list of playlists that the user can add songs to.
+        Includes owned playlists and collaborative playlists.
+        """
+        if not self.is_authenticated():
+            return []
+        try:
+            playlists = (
+                self._library_playlists
+                if self._library_playlists
+                else self.get_library_playlists()
+            )
+
+            user_info = self.get_account_info()
+            user_name = user_info.get("accountName", "").lower() if user_info else ""
+
+            editable = []
+            for p in playlists:
+                pid = p.get("playlistId") or ""
+                # Exclude radio/mixes/system playlists
+                if not pid.startswith("PL") and not pid.startswith("VL"):
+                    continue
+                if pid in ["LM", "SE", "VLLM"]:
+                    continue
+
+                # Ownership Check:
+                # items created by the user often have author="You" or their name, or no author field.
+                # items subscribed to have a specific author name.
+                # collaborative ones might have both, but usually can be added to.
+
+                author = p.get("author") or p.get("creator")
+                if isinstance(author, list) and author:
+                    author = author[0].get("name", "")
+                elif isinstance(author, dict):
+                    author = author.get("name", "")
+
+                author_str = str(author or "").lower()
+
+                # If author is missing, empty, "you", or your name, it's yours
+                is_mine = False
+                if (
+                    not author_str
+                    or author_str == "you"
+                    or (user_name and author_str == user_name)
+                ):
+                    is_mine = True
+
+                # Collaborative check: ytmusicapi identifies these in some objects,
+                # but if we are following it and it's in the library, we can try.
+                # Actually, the most reliable way in the library list is seeing if there is NOT an external author.
+
+                if is_mine or p.get("collaborative"):
+                    editable.append(p)
+            return editable
+        except Exception as e:
+            print(f"Error filtering editable playlists: {e}")
+            return []
 
     def subscribe_artist(self, channel_id):
         if not self.is_authenticated():

@@ -7,7 +7,7 @@ from ui.models.song import SongItem
 class MixPage(BasePlaylistPage):
     def __init__(self, player, *args, **kwargs):
         super().__init__(player, *args, **kwargs)
-        self.sort_row.set_visible(False)  # Mixes are randomized/auto-gen
+        # self.sort_row.set_visible(False)
 
     def load_mix(self, mix_id, initial_data=None):
         if self.playlist_id != mix_id:
@@ -41,26 +41,40 @@ class MixPage(BasePlaylistPage):
         try:
             # ytmusicapi get_playlist with limit=25 initially
             data = self.client.get_playlist(self.playlist_id, limit=100)
-            
+
             title = data.get("title", "Unknown Mix")
             description = data.get("description", "")
             tracks = data.get("tracks", [])
             thumbnails = data.get("thumbnails", [])
-            
+
             meta1 = "Auto-generated Mix"
             meta2 = "Infinite Playlist"
-            
-            GObject.idle_add(self.update_ui, title, description, meta1, meta2, thumbnails, tracks)
+
+            GObject.idle_add(
+                self.update_ui, title, description, meta1, meta2, thumbnails, tracks
+            )
             self.is_fully_loaded = False  # Mixes are infinite
-            
+
         except Exception as e:
             print(f"Error fetching mix: {e}")
 
     def _is_infinite(self):
         return True
 
-    def update_ui(self, title, description, meta1, meta2, thumbnails, tracks, append=False, total_tracks=None):
-        super().update_ui(title, description, meta1, meta2, thumbnails, tracks, append, total_tracks)
-        self.sort_row.set_visible(False)
+    def update_ui(
+        self,
+        title,
+        description,
+        meta1,
+        meta2,
+        thumbnails,
+        tracks,
+        append=False,
+        total_tracks=None,
+    ):
+        super().update_ui(
+            title, description, meta1, meta2, thumbnails, tracks, append, total_tracks
+        )
+        # self.sort_row.set_visible(False)
         self.load_more_spinner.set_visible(False)
         self.is_loading_more = False

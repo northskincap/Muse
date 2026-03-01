@@ -4,7 +4,7 @@ import os
 import tempfile
 from gi.repository import Gtk, Adw, GObject, GLib, Pango, Gdk, Gio, GdkPixbuf
 from api.client import MusicClient
-from ui.utils import AsyncImage, LikeButton
+from ui.utils import AsyncImage, LikeButton, get_yt_music_link
 from ui.crop_dialog import ImageCropDialog
 
 # ── GObject Models ────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ class PlaylistPage(Adw.Bin):
         self.playlist_title_text = ""
         self.playlist_description_text = ""
         self._is_previewing_cover = False
+        self.is_owned = False
 
         # ── 1. Header UI Container ────────────────────────────────────────────
         self.header_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -137,31 +138,47 @@ class PlaylistPage(Adw.Bin):
         shuffle_btn.connect("clicked", self.on_shuffle_clicked)
         actions_box.append(shuffle_btn)
 
-        self.edit_btn = Gtk.Button()
-        self.edit_btn.set_icon_name("document-edit-symbolic")
-        self.edit_btn.add_css_class("circular")
-        self.edit_btn.set_valign(Gtk.Align.CENTER)
-        self.edit_btn.set_halign(Gtk.Align.CENTER)
-        self.edit_btn.set_size_request(48, 48)
-        self.edit_btn.set_visible(False)
-        self.edit_btn.set_tooltip_text("Edit Playlist")
-        self.edit_btn.connect("clicked", self.on_edit_clicked)
-        actions_box.append(self.edit_btn)
+        # Simplified Actions (Play/Shuffle only)
 
-        self.delete_btn = Gtk.Button()
-        self.delete_btn.set_icon_name("user-trash-symbolic")
-        self.delete_btn.add_css_class("circular")
-        self.delete_btn.add_css_class("destructive-action")
-        self.delete_btn.set_valign(Gtk.Align.CENTER)
-        self.delete_btn.set_halign(Gtk.Align.CENTER)
-        self.delete_btn.set_size_request(48, 48)
-        self.delete_btn.set_tooltip_text("Delete Playlist")
-        self.delete_btn.connect("clicked", self.on_delete_clicked)
-        self.delete_btn.set_visible(False)
-        actions_box.append(self.delete_btn)
+        # self.edit_btn and self.delete_btn are no longer in the main actions_box
+
+        self.more_btn = Gtk.MenuButton(icon_name="view-more-symbolic")
+        self.more_btn.add_css_class("circular")
+        self.more_btn.set_size_request(48, 48)
+        self.more_btn.set_tooltip_text("More Options")
+
+        self.more_menu_model = Gio.Menu()
+        self.playlist_menu = Gio.Menu()
+        self.more_btn.set_menu_model(self.more_menu_model)
+        actions_box.append(self.more_btn)
+
+        # Actions Row
+        self.action_group = Gio.SimpleActionGroup()
+        self.insert_action_group("page", self.action_group)
+
+        action_add = Gio.SimpleAction.new(
+            "add_all_to_playlist", GLib.VariantType.new("s")
+        )
+        action_add.connect("activate", self._on_add_all_to_playlist)
+        self.action_group.add_action(action_add)
+
+        action_copy = Gio.SimpleAction.new("copy_link", None)
+        action_copy.connect("activate", self.on_copy_link_clicked)
+        self.action_group.add_action(action_copy)
+
+        action_edit = Gio.SimpleAction.new("edit", None)
+        action_edit.connect("activate", self.on_edit_clicked)
+        self.action_group.add_action(action_edit)
+
+        action_delete = Gio.SimpleAction.new("delete", None)
+        action_delete.connect("activate", self.on_delete_clicked)
+        self.action_group.add_action(action_delete)
+
+        # We need to track visibility of edit/delete in the menu
+        # Gio.MenuItem doesn't have set_visible, so we might need to refresh the menu
 
         self.sort_dropdown = Gtk.DropDown.new_from_strings(
-            ["Default", "Title (A-Z)", "Artist (A-Z)", "Album (A-Z)"]
+            ["Default", "Title (A-Z)", "Artist (A-Z)", "Album (A-Z)", "Duration"]
         )
         self.sort_dropdown.set_valign(Gtk.Align.CENTER)
         self.sort_dropdown.add_css_class("pill")
@@ -231,7 +248,7 @@ class PlaylistPage(Adw.Bin):
         clamp = (
             Adw.ClampScrollable() if hasattr(Adw, "ClampScrollable") else Adw.Clamp()
         )
-        clamp.set_maximum_size(800)
+        clamp.set_maximum_size(1024)
         clamp.set_tightening_threshold(600)
 
         # Apply padding directly to the ListView so it remains Gtk.Scrollable
@@ -286,6 +303,25 @@ class PlaylistPage(Adw.Bin):
         img = AsyncImage(size=40)
         row.add_prefix(img)
         row._lv_img = img
+        row._lv_player_handler = None
+
+        # Track number label (for album view)
+        track_num = Gtk.Label()
+        track_num.add_css_class("dim-label")
+        track_num.add_css_class("caption")
+        track_num.set_valign(Gtk.Align.CENTER)
+        track_num.set_halign(Gtk.Align.CENTER)
+        track_num.set_size_request(40, 40)
+        track_num.set_visible(False)
+        row.add_prefix(track_num)
+        row._lv_track_num = track_num
+
+        explicit_badge = Gtk.Label(label="E")
+        explicit_badge.add_css_class("explicit-badge")
+        explicit_badge.set_valign(Gtk.Align.CENTER)
+        explicit_badge.set_visible(False)
+        row.add_suffix(explicit_badge)
+        row._lv_explicit_badge = explicit_badge
 
         dur_lbl = Gtk.Label()
         dur_lbl.add_css_class("caption")
@@ -337,12 +373,29 @@ class PlaylistPage(Adw.Bin):
 
         thumbnails = t.get("thumbnails", [])
         thumb_url = thumbnails[-1]["url"] if thumbnails else None
-        if thumb_url:
-            if row._lv_img.url != thumb_url:
-                row._lv_img.load_url(thumb_url)
+
+        # Album view: show track number instead of thumbnail
+        is_album = getattr(self, "_is_album_view", False)
+        print(
+            f"DEBUG-BIND-ALBUM: playlist_id={self.playlist_id} is_album={is_album} track={title}"
+        )
+        if is_album:
+            position = list_item.get_position()
+            # The list contains a header at index 0, so the first track is at index 1.
+            # Using 'position' as the track number correctly gives us 1-based indexing.
+            track_num = position
+            row._lv_track_num.set_label(str(track_num))
+            row._lv_track_num.set_visible(True)
+            row._lv_img.set_visible(False)
         else:
-            row._lv_img.set_from_icon_name("media-optical-symbolic")
-            row._lv_img.url = None
+            row._lv_track_num.set_visible(False)
+            row._lv_img.set_visible(True)
+            if thumb_url:
+                if row._lv_img.url != thumb_url:
+                    row._lv_img.load_url(thumb_url)
+            else:
+                row._lv_img.set_from_icon_name("media-optical-symbolic")
+                row._lv_img.url = None
 
         dur_sec = t.get("duration_seconds")
         dur_text = (
@@ -350,6 +403,9 @@ class PlaylistPage(Adw.Bin):
         )
         row._lv_dur_lbl.set_label(dur_text or "")
         row._lv_dur_lbl.set_visible(bool(dur_text))
+
+        is_explicit = t.get("isExplicit") or t.get("explicit", False)
+        row._lv_explicit_badge.set_visible(bool(is_explicit))
 
         _clear_box(row._lv_like_box)
         if t.get("videoId"):
@@ -372,6 +428,25 @@ class PlaylistPage(Adw.Bin):
         }
         row._lv_full_track = t
 
+        # Playing indicator: check if this track is currently playing
+        video_id = t.get("videoId")
+        is_playing = bool(video_id and video_id == self.player.current_video_id)
+        if is_playing:
+            bin_widget.add_css_class("now-playing")
+        else:
+            bin_widget.remove_css_class("now-playing")
+
+        # Connect to player metadata changes
+        def on_meta_changed(player, *args, _bw=bin_widget, _vid=video_id):
+            if bool(_vid and _vid == player.current_video_id):
+                _bw.add_css_class("now-playing")
+            else:
+                _bw.remove_css_class("now-playing")
+
+        row._lv_player_handler = self.player.connect(
+            "metadata-changed", on_meta_changed
+        )
+
     def _unbind_list_item(self, factory, list_item):
         bin_widget = list_item.get_child()
         item = list_item.get_item()
@@ -383,12 +458,23 @@ class PlaylistPage(Adw.Bin):
             return
 
         row = bin_widget._lv_track_ui
+
+        # Disconnect player signal
+        if row._lv_player_handler is not None:
+            try:
+                self.player.disconnect(row._lv_player_handler)
+            except Exception:
+                pass
+            row._lv_player_handler = None
+        bin_widget.remove_css_class("now-playing")
+
         row.set_title("")
         row.set_subtitle("")
         row._lv_img.set_from_icon_name("media-optical-symbolic")
         row._lv_img.url = None
         row._lv_dur_lbl.set_label("")
         row._lv_dur_lbl.set_visible(False)
+        row._lv_explicit_badge.set_visible(False)
         _clear_box(row._lv_like_box)
         row._lv_video_data = None
         row._lv_full_track = None
@@ -481,6 +567,52 @@ class PlaylistPage(Adw.Bin):
                 self.emit("header-title-changed", self.playlist_title_text)
             else:
                 self.emit("header-title-changed", "")
+        self._refresh_more_menu()
+
+    def _refresh_more_menu(self, is_owned=False):
+        self.more_menu_model.remove_all()
+
+        # 1. Add All to Playlist Submenu
+        self.playlist_menu.remove_all()
+        playlists = self.client.get_editable_playlists()
+        for p in playlists:
+            title = p.get("title", "Untitled")
+            pid = p.get("playlistId")
+            if pid:
+                self.playlist_menu.append(title, f"page.add_all_to_playlist('{pid}')")
+
+        self.more_menu_model.append_submenu("Add all to Playlist", self.playlist_menu)
+
+        # 2. Copy Link (Always shown)
+        self.more_menu_model.append("Copy Link", "page.copy_link")
+
+        # 3. Edit/Delete (Only if owned/editable)
+        if is_owned:
+            self.more_menu_model.append("Edit Playlist", "page.edit")
+            self.more_menu_model.append("Delete Playlist", "page.delete")
+
+    def _on_add_all_to_playlist(self, action, param):
+        playlist_id = param.get_string()
+        video_ids = [t.get("videoId") for t in self.current_tracks if t.get("videoId")]
+
+        if not video_ids:
+            return
+
+        def thread_func():
+            success = self.client.add_playlist_items(playlist_id, video_ids)
+            if success:
+                msg = f"Added {len(video_ids)} tracks to playlist"
+                print(msg)
+                GLib.idle_add(self._show_toast, msg)
+            else:
+                GLib.idle_add(self._show_toast, "Failed to add tracks")
+
+        threading.Thread(target=thread_func, daemon=True).start()
+
+    def _show_toast(self, message):
+        root = self.get_root()
+        if hasattr(root, "add_toast"):
+            root.add_toast(message)
 
     def _on_unmap(self, widget):
         self.emit("header-title-changed", "")
@@ -859,15 +991,17 @@ class PlaylistPage(Adw.Bin):
         is_album = self.playlist_id and (
             self.playlist_id.startswith("MPRE") or self.playlist_id.startswith("OLAK")
         )
+        self._is_album_view = is_album
         has_tracks = bool(tracks)
 
         self.empty_label.set_visible(not has_tracks)
         self.sort_row.set_visible(has_tracks and not is_album)
 
-        # Show edit/delete buttons if it's an owned playlist
+        self.is_owned = is_owned
         is_editable = self.client.is_authenticated() and not is_album and is_owned
-        self.edit_btn.set_visible(is_editable)
-        self.delete_btn.set_visible(is_editable)
+
+        # Dynamically rebuild the menu to show/hide Edit/Delete
+        self._refresh_more_menu(is_owned=is_editable)
 
         if thumbnails and not append:
             url = thumbnails[-1]["url"]
@@ -976,6 +1110,19 @@ class PlaylistPage(Adw.Bin):
 
     # ── Song activation ───────────────────────────────────────────────────────
 
+    def on_copy_link_clicked(self, btn):
+        if not self.playlist_id:
+            return
+        is_album = self.playlist_id.startswith("MPRE") or self.playlist_id.startswith(
+            "OLAK"
+        )
+        link = get_yt_music_link(self.playlist_id, is_album=is_album)
+        if link:
+            clipboard = Gdk.Display.get_default().get_clipboard()
+            clipboard.set(link)
+            self._show_toast("Link copied to clipboard")
+            print(f"Copied link: {link}")
+
     def on_song_activated(self, listview, position):
         item = self.flatten_model.get_item(position)
         if item is None or type(item).__name__ == "HeaderItem":
@@ -1014,7 +1161,7 @@ class PlaylistPage(Adw.Bin):
             return
 
         if sort_type == 0:
-            if hasattr(self, "original_tracks"):
+            if hasattr(self, "original_tracks") and self.original_tracks:
                 self.current_tracks = list(self.original_tracks)
             else:
                 return
@@ -1038,6 +1185,8 @@ class PlaylistPage(Adw.Bin):
                     x.get("title", "").lower(),
                 )
             )
+        elif sort_type == 4:  # Duration
+            self.current_tracks.sort(key=lambda x: x.get("duration_seconds", 0))
 
         self._clear_track_store()
         for t in self.current_tracks:
@@ -1083,12 +1232,75 @@ class PlaylistPage(Adw.Bin):
         menu_model = Gio.Menu()
         if data.get("id"):
             menu_model.append("Copy Link", "row.copy_link")
-        if (
-            full_track_data
-            and "artists" in full_track_data
-            and full_track_data["artists"][0].get("id")
-        ):
             menu_model.append("Go to Artist", "row.goto_artist")
+
+        # Remove from Playlist
+        if self.is_owned and data.get("setVideoId") and data.get("id"):
+            menu_model.append("Remove from Playlist", "row.remove_from_playlist")
+
+            def remove_from_playlist_cb(action, param):
+                track_vid = data.get("id")
+                track_set_vid = data.get("setVideoId")
+
+                # Perform background remove
+                def remove_thread_func():
+                    track_to_remove = {
+                        "videoId": track_vid,
+                        "setVideoId": track_set_vid,
+                    }
+                    success = self.client.remove_playlist_items(
+                        self.playlist_id, [track_to_remove]
+                    )
+                    if success:
+                        print(f"Removed track {track_vid} from {self.playlist_id}")
+                        # Refresh playlist UI
+                        GLib.idle_add(self.load_playlist, self.playlist_id)
+                    else:
+                        print(f"Failed to remove track from {self.playlist_id}")
+
+                threading.Thread(target=remove_thread_func, daemon=True).start()
+
+            a_remove = Gio.SimpleAction.new("remove_from_playlist", None)
+            a_remove.connect("activate", remove_from_playlist_cb)
+            group.add_action(a_remove)
+
+        # Add to Playlist Submenu
+        vid = data.get("id") or data.get("videoId")
+        if vid:
+            # Re-fetch editable playlists from client (should be cached)
+            playlists = self.client.get_editable_playlists()
+            if playlists:
+                playlist_menu = Gio.Menu()
+                # Sort by title
+                sorted_playlists = sorted(
+                    playlists, key=lambda x: x.get("title", "").lower()
+                )
+                for p in sorted_playlists:
+                    p_title = p.get("title", "Unknown")
+                    p_id = p.get("playlistId")
+                    if p_id:
+                        playlist_menu.append(p_title, f"row.add_to_playlist('{p_id}')")
+                menu_model.append_submenu("Add to Playlist", playlist_menu)
+
+                # Add the action to the group
+                def add_to_playlist_cb(action, param):
+                    target_pid = param.get_string()
+
+                    # Perform background add
+                    def thread_func():
+                        success = self.client.add_playlist_items(target_pid, [vid])
+                        if success:
+                            print(f"Added {vid} to {target_pid}")
+                        else:
+                            print(f"Failed to add {vid} to {target_pid}")
+
+                    threading.Thread(target=thread_func, daemon=True).start()
+
+                a_add = Gio.SimpleAction.new(
+                    "add_to_playlist", GLib.VariantType.new("s")
+                )
+                a_add.connect("activate", add_to_playlist_cb)
+                group.add_action(a_add)
 
         if menu_model.get_n_items() > 0:
             popover = Gtk.PopoverMenu.new_from_model(menu_model)
@@ -1166,7 +1378,7 @@ class PlaylistPage(Adw.Bin):
 
     # ── Edit Playlist ─────────────────────────────────────────────────────────
 
-    def on_delete_clicked(self, btn):
+    def on_delete_clicked(self, *args):
         dialog = Adw.MessageDialog(
             transient_for=self.get_root(),
             heading="Delete Playlist?",
@@ -1209,7 +1421,7 @@ class PlaylistPage(Adw.Bin):
 
         threading.Thread(target=thread_func, daemon=True).start()
 
-    def on_edit_clicked(self, btn):
+    def on_edit_clicked(self, *args):
         self._show_edit_dialog()
 
     def on_cover_right_click(self, gesture, n_press, x, y):

@@ -60,8 +60,8 @@ listview.playlist-view > row:nth-child(2) {
   border-radius: 12px 12px 0 0;
 }
 
-/* The LAST song */
-listview.playlist-view > row:last-child {
+/* The LAST song (must NOT be the header) */
+listview.playlist-view > row:not(:first-child):last-child {
   border-bottom: 1px solid @card_shade_color;
   border-radius: 0 0 12px 12px;
 }
@@ -93,4 +93,55 @@ listview.playlist-view > row:not(:first-child):not(:disabled):active {
 
 listview.playlist-view > row:not(:first-child):disabled {
   opacity: 0.5;
+}
+
+/* Horizontal Grid Item Hover */
+.artist-horizontal-item {
+  padding: 8px;
+  border-radius: 12px;
+  transition: background-color 200ms ease;
+}
+
+.artist-horizontal-item:hover {
+  background-color: alpha(@card_fg_color, 0.08);
+}
+
+.artist-horizontal-item:active {
+  background-color: alpha(@card_fg_color, 0.15);
+}
+
+.explicit-badge {
+  background-color: alpha(@card_fg_color, 0.1);
+  color: @card_fg_color;
+  border-radius: 4px;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0;
+  font-weight: bold;
+  font-size: 0.65em;
+  opacity: 0.6;
+}
+
+.dim-label {
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.playlist-sort-row {
+  box-shadow: none;
+}
+
+/* ── NOW PLAYING INDICATOR ── */
+listview.playlist-view > row .now-playing {
+  background-color: alpha(@accent_color, 0.18);
+}
+/* First song row is nth-child(2) because first-child is the header */
+listview.playlist-view > row:nth-child(2) .now-playing {
+  border-radius: 12px 12px 0 0;
+}
+listview.playlist-view > row:last-child .now-playing {
+  border-radius: 0 0 12px 12px;
+}
+listview.playlist-view > row:nth-child(2):last-child .now-playing {
+  border-radius: 12px;
 }

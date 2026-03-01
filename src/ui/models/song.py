@@ -61,7 +61,17 @@ class SongItem(GObject.Object):
 
     @is_playing.setter
     def is_playing(self, value):
-        self._is_playing = value
+        if self._is_playing != value:
+            self._is_playing = value
+            self.notify("is-playing")
+
+    @GObject.Property(type=bool, default=False)
+    def is_explicit(self):
+        return self._is_explicit
+
+    @is_explicit.setter
+    def is_explicit(self, value):
+        self._is_explicit = value
 
     @GObject.Property(type=str)
     def album(self):
@@ -86,9 +96,9 @@ class SongItem(GObject.Object):
         # Album
         album_data = track_data.get("album")
         if isinstance(album_data, dict):
-             self._album = album_data.get("name", "")
+            self._album = album_data.get("name", "")
         else:
-             self._album = str(album_data or "")
+            self._album = str(album_data or "")
 
         # Duration
         dur_sec = track_data.get("duration_seconds")
@@ -109,3 +119,6 @@ class SongItem(GObject.Object):
         self._video_id = track_data.get("videoId")
         self._like_status = track_data.get("likeStatus", "INDIFFERENT")
         self._is_playing = False
+        self._is_explicit = bool(
+            track_data.get("isExplicit") or track_data.get("explicit", False)
+        )

@@ -259,6 +259,7 @@ class ExpandedPlayer(Gtk.Box):
         self.player.connect("volume-changed", self.on_volume_changed)
 
         # Initial state sync
+        self._is_buffering_spinner = False
         self.on_state_changed(self.player, self.player.get_state_string())
 
     def _on_map(self, widget):
@@ -276,6 +277,7 @@ class ExpandedPlayer(Gtk.Box):
     ):
         self.title_label.set_label(title)
         self.artist_label.set_label(artist)
+
         if thumbnail_url:
             url_max = thumbnail_url.replace("w120-h120", "w640-h640").replace(
                 "sddefault", "maxresdefault"
@@ -294,6 +296,12 @@ class ExpandedPlayer(Gtk.Box):
 
         # Preload neighbor covers and sync queue
         self._sync_carousel_queue()
+
+        # Show spinner when a new track starts loading
+        if video_id and self.player.duration <= 0:
+            self._is_buffering_spinner = True
+            self.play_btn_stack.set_visible_child_name("spinner")
+            self.play_btn.set_sensitive(False)
 
     def _get_track_thumb(self, index):
         """Get a thumbnail URL for a track at the given queue index."""
@@ -428,20 +436,34 @@ class ExpandedPlayer(Gtk.Box):
             self.player.play()
 
     def on_state_changed(self, player, state):
+        print(f"DEBUG-EXPANDED-STATE-START: state={state}")
         if state == "queue-updated":
             self._sync_carousel_queue()
+            print("DEBUG-EXPANDED-STATE-END (queue-updated)")
             return
 
         if state == "loading":
             self.play_btn_stack.set_visible_child_name("spinner")
             self.play_btn.set_sensitive(False)
             self._is_buffering_spinner = True
+            print("DEBUG-EXPANDED-STATE-END (loading)")
             return
 
         if state == "playing" and self.player.duration <= 0:
             # We are playing but buffering stream—keep spinner active until duration > 0
+            self.play_btn_stack.set_visible_child_name("spinner")
             self.play_btn.set_sensitive(False)
             self._is_buffering_spinner = True
+            print("DEBUG-EXPANDED-STATE-END (playing-buffering)")
+            return
+
+        if (
+            self._is_buffering_spinner
+            and self.player.duration <= 0
+            and state in ("paused", "stopped")
+        ):
+            # Still buffering—keep spinner visible
+            print("DEBUG-EXPANDED-STATE-END (still-buffering)")
             return
 
         self._is_buffering_spinner = False
@@ -453,6 +475,7 @@ class ExpandedPlayer(Gtk.Box):
             else "media-playback-start-symbolic"
         )
         self.play_icon.set_from_icon_name(icon)
+        print("DEBUG-EXPANDED-STATE-END")
 
     def on_volume_scale_changed(self, scale):
         self.player.set_volume(scale.get_value())

@@ -1,6 +1,7 @@
 import threading
 import urllib.request
 from collections import OrderedDict
+import re
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
 # Bounded LRU Cache to prevent memory leaks (max 100 images)
@@ -29,6 +30,93 @@ def cache_pixbuf(url, pixbuf):
     IMG_CACHE[url] = pixbuf
     if len(IMG_CACHE) > MAX_CACHE_SIZE:
         IMG_CACHE.popitem(last=False)
+
+
+def get_yt_music_link(item_id, is_album=False):
+    """
+    Constructs a YouTube Music link for a playlist or album.
+    """
+    if not item_id:
+        return ""
+    if is_album or item_id.startswith("MPRE") or item_id.startswith("OLAK"):
+        return f"https://music.youtube.com/browse/{item_id}"
+    return f"https://music.youtube.com/playlist?list={item_id}"
+
+
+def parse_item_metadata(item):
+    """
+    Robustly extracts metadata (year, type, is_explicit) from ytmusicapi item formats.
+    Handles standard keys and fallbacks to subtitle runs/badges.
+    """
+    metadata = {
+        "year": str(item.get("year", "")),
+        "type": str(item.get("type", "")),
+        "is_explicit": bool(item.get("isExplicit") or item.get("explicit")),
+    }
+
+    # Fallback for explicit (badges)
+    if not metadata["is_explicit"]:
+        badges = item.get("badges", [])
+        for badge in badges:
+            # Check for label in the badge itself or inside a music_inline_badge_renderer
+            label = ""
+            if isinstance(badge, dict):
+                label = badge.get("label", "") or badge.get(
+                    "musicInlineBadgeRenderer", {}
+                ).get("accessibilityData", {}).get("accessibilityData", {}).get(
+                    "label", ""
+                )
+            if not label and isinstance(badge, str):
+                label = badge
+
+            label = str(label).lower()
+            if "explicit" in label or label == "e":
+                metadata["is_explicit"] = True
+                break
+
+    # Fallback for year/type (subtitle runs)
+    subtitle = item.get("subtitle", "")
+    runs = []
+    if isinstance(subtitle, list):
+        runs = subtitle
+    elif isinstance(item.get("subtitles"), list):
+        runs = item.get("subtitles")
+    elif isinstance(subtitle, dict) and "runs" in subtitle:
+        runs = subtitle["runs"]
+
+    if runs:
+        for run in runs:
+            if not isinstance(run, dict):
+                continue
+            text = run.get("text", "")
+            if not text:
+                continue
+
+            # Look for 4-digit years
+            year_match = re.search(r"\d{4}", text)
+            if year_match and not metadata["year"]:
+                metadata["year"] = year_match.group(0)
+
+            # Common types
+            type_lower = text.lower()
+            if (
+                "single" in type_lower
+                or "ep" in type_lower
+                or "album" in type_lower
+                or "video" in type_lower
+            ):
+                if not metadata["type"]:
+                    metadata["type"] = text
+
+    # Final cleanup: if year is not numeric, it's likely a type
+    year_val = metadata["year"]
+    is_numeric_year = bool(re.search(r"\d{4}", year_val))
+    if year_val and not is_numeric_year:
+        if not metadata["type"]:
+            metadata["type"] = year_val
+        metadata["year"] = ""
+
+    return metadata
 
 
 class AsyncImage(Gtk.Image):

@@ -195,6 +195,7 @@ class PlayerBar(Gtk.Box):
         self.player.connect("volume-changed", self.on_volume_changed)
 
         # Initial state sync
+        self._is_buffering_spinner = False
         self.on_state_changed(self.player, self.player.get_state_string())
 
         # Gestures for Expansion (Connected to content_box for wider hit area)
@@ -343,6 +344,7 @@ class PlayerBar(Gtk.Box):
     def on_metadata_changed(
         self, player, title, artist, thumbnail_url, video_id, like_status
     ):
+        print(f"DEBUG-BAR-META-START: video_id={video_id}")
         self.current_title = title
         self.current_artist = artist
         self.title_label.set_label(title)
@@ -357,6 +359,13 @@ class PlayerBar(Gtk.Box):
         else:
             self.like_btn.set_visible(False)
 
+        # Show spinner when a new track starts loading
+        if video_id and self.player.duration <= 0:
+            self._is_buffering_spinner = True
+            self._play_stack.set_visible_child_name("spinner")
+            self.play_btn.set_sensitive(False)
+        print("DEBUG-BAR-META-END")
+
     def on_play_clicked(self, btn):
         if self.player.get_state_string() == "playing":
             self.player.pause()
@@ -364,6 +373,7 @@ class PlayerBar(Gtk.Box):
             self.player.play()
 
     def on_state_changed(self, player, state):
+        print(f"DEBUG-BAR-STATE-START: state={state}")
         if state == "loading":
             self.scale.set_value(0)
             self.scale.set_sensitive(False)
@@ -373,7 +383,9 @@ class PlayerBar(Gtk.Box):
             self._is_buffering_spinner = True
         elif state == "playing":
             if self.player.duration <= 0:
+                # Buffering — show spinner until we have a valid duration
                 self._is_buffering_spinner = True
+                self._play_stack.set_visible_child_name("spinner")
                 self.play_btn.set_sensitive(False)
                 self.scale.set_sensitive(False)
             else:
@@ -383,12 +395,17 @@ class PlayerBar(Gtk.Box):
                 self._play_stack.set_visible_child_name("icon")
                 self.play_btn.set_sensitive(True)
         elif state in ("paused", "stopped"):
+            if self._is_buffering_spinner and self.player.duration <= 0:
+                # Still buffering—keep spinner visible
+                print("DEBUG-BAR-STATE-END")
+                return
             if state == "paused":
                 self.scale.set_sensitive(True)
             self._play_icon.set_from_icon_name("media-playback-start-symbolic")
             self._play_stack.set_visible_child_name("icon")
             self.play_btn.set_sensitive(True)
             self._is_buffering_spinner = False
+        print("DEBUG-BAR-STATE-END")
 
     def _format_time(self, seconds):
         if seconds < 0:

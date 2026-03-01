@@ -2,7 +2,7 @@ from gi.repository import Gtk, Adw, GObject, GLib, Pango, Gdk, Gio
 import threading
 import re
 from api.client import MusicClient
-from ui.utils import AsyncImage, LikeButton
+from ui.utils import AsyncImage, LikeButton, get_yt_music_link
 from ui.models.song import SongItem
 from ui.widgets.song_row import SongRowWidget
 
@@ -64,7 +64,7 @@ class BasePlaylistPage(Adw.Bin):
 
         # Clamp for Header
         header_clamp = Adw.Clamp()
-        header_clamp.set_maximum_size(800)
+        header_clamp.set_maximum_size(1024)
         header_clamp.set_tightening_threshold(600)
         header_clamp.set_child(self.header_info_box)
 
@@ -127,8 +127,43 @@ class BasePlaylistPage(Adw.Bin):
         shuffle_btn.connect("clicked", self.on_shuffle_clicked)
         actions_box.append(shuffle_btn)
 
+        # Simplified Actions (Play/Shuffle only)
+        # self.copy_link_btn is no longer in the main actions_box
+
+        self.more_btn = Gtk.MenuButton(icon_name="view-more-symbolic")
+        self.more_btn.add_css_class("circular")
+        self.more_btn.set_size_request(48, 48)
+        self.more_btn.set_tooltip_text("More Options")
+
+        self.more_menu_model = Gio.Menu()
+        self.playlist_menu = Gio.Menu()
+        # The following will be populated by _refresh_more_menu()
+        self.more_btn.set_menu_model(self.more_menu_model)
+        actions_box.append(self.more_btn)
+
+        # Actions Row
+        self.action_group = Gio.SimpleActionGroup()
+        self.insert_action_group("page", self.action_group)
+
+        action_add = Gio.SimpleAction.new(
+            "add_all_to_playlist", GLib.VariantType.new("s")
+        )
+        action_add.connect("activate", self._on_add_all_to_playlist)
+        self.action_group.add_action(action_add)
+
+        action_copy = Gio.SimpleAction.new("copy_link", None)
+        action_copy.connect("activate", self.on_copy_link_clicked)
+        self.action_group.add_action(action_copy)
+
         self.sort_dropdown = Gtk.DropDown.new_from_strings(
-            ["Default", "Title (A-Z)", "Artist (A-Z)", "Album (A-Z)"]
+            [
+                "Default",
+                "Title (A-Z)",
+                "Artist (A-Z)",
+                "Album (A-Z)",
+                "Duration",
+                "Year",
+            ]
         )
         self.sort_dropdown.set_valign(Gtk.Align.CENTER)
         self.sort_dropdown.add_css_class("pill")
@@ -155,13 +190,14 @@ class BasePlaylistPage(Adw.Bin):
 
         self.sort_model = Gtk.SortListModel(model=self.filter_model)
         # We'll set the sorter in subclasses or on sort change
-        
+
         self.selection_model = Gtk.SingleSelection(model=self.sort_model)
         self.selection_model.set_autoselect(False)
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self._on_factory_setup)
         factory.connect("bind", self._on_factory_bind)
+        factory.connect("unbind", self._on_factory_unbind)
 
         self.songs_view = Gtk.ListView(model=self.selection_model, factory=factory)
         self.songs_view.add_css_class("boxed-list")
@@ -226,6 +262,11 @@ class BasePlaylistPage(Adw.Bin):
         item = list_item.get_item()
         widget.bind(item, self)
 
+    def _on_factory_unbind(self, factory, list_item):
+        widget = list_item.get_child()
+        if widget and hasattr(widget, "stop_handlers"):
+            widget.stop_handlers()
+
     def _filter_func(self, item):
         if not self.current_filter_text:
             return True
@@ -245,7 +286,11 @@ class BasePlaylistPage(Adw.Bin):
 
         max_val = vadjust.get_upper() - vadjust.get_page_size()
         if max_val > 0 and val >= max_val - 200:
-            if not self.is_loading_more and self.playlist_id and not self.is_fully_loaded:
+            if (
+                not self.is_loading_more
+                and self.playlist_id
+                and not self.is_fully_loaded
+            ):
                 self.load_more()
 
     def load_more(self):
@@ -258,11 +303,61 @@ class BasePlaylistPage(Adw.Bin):
                 self.emit("header-title-changed", self.playlist_title_text)
             else:
                 self.emit("header-title-changed", "")
+        self._refresh_more_menu()
+
+    def _refresh_more_menu(self):
+        self.more_menu_model.remove_all()
+        # 1. Add All to Playlist Submenu
+        self.playlist_menu.remove_all()
+        playlists = self.client.get_editable_playlists()
+        for p in playlists:
+            title = p.get("title", "Untitled")
+            pid = p.get("playlistId")
+            if pid:
+                self.playlist_menu.append(title, f"page.add_all_to_playlist('{pid}')")
+
+        self.more_menu_model.append_submenu("Add all to Playlist", self.playlist_menu)
+
+        # 2. Copy Link (Always shown)
+        self.more_menu_model.append("Copy Link", "page.copy_link")
+
+    def _on_add_all_to_playlist(self, action, param):
+        playlist_id = param.get_string()
+        video_ids = [t.get("videoId") for t in self.current_tracks if t.get("videoId")]
+
+        if not video_ids:
+            return
+
+        def thread_func():
+            success = self.client.add_playlist_items(playlist_id, video_ids)
+            if success:
+                msg = f"Added {len(video_ids)} tracks to playlist"
+                print(msg)
+                GLib.idle_add(self._show_toast, msg)
+            else:
+                GLib.idle_add(self._show_toast, "Failed to add tracks")
+
+        threading.Thread(target=thread_func, daemon=True).start()
+
+    def _show_toast(self, message):
+        root = self.get_root()
+        if hasattr(root, "add_toast"):
+            root.add_toast(message)
 
     def _on_unmap(self, widget):
         self.emit("header-title-changed", "")
 
-    def update_ui(self, title, description, meta1, meta2, thumbnails, tracks, append=False, total_tracks=None):
+    def update_ui(
+        self,
+        title,
+        description,
+        meta1,
+        meta2,
+        thumbnails,
+        tracks,
+        append=False,
+        total_tracks=None,
+    ):
         self.stack.set_visible_child_name("content")
         self.content_spinner.set_visible(False)
         self.playlist_title_text = title
@@ -305,46 +400,124 @@ class BasePlaylistPage(Adw.Bin):
         current_id = self.player.current_video_id
         for i in range(self.store.get_n_items()):
             item = self.store.get_item(i)
-            is_playing = (item.video_id == current_id)
+            is_playing = item.video_id == current_id
             if item.is_playing != is_playing:
                 item.is_playing = is_playing
 
     def on_song_activated(self, list_view, position):
         item = self.sort_model.get_item(position)
-        if not item: return
-        
+        if not item:
+            return
+
         # Get tracks in current order (sorted & filtered)
         tracks_to_queue = []
         for i in range(self.sort_model.get_n_items()):
-             tracks_to_queue.append(self.sort_model.get_item(i).track_data)
-        
+            tracks_to_queue.append(self.sort_model.get_item(i).track_data)
+
         is_inf = self._is_infinite()
-        self.player.set_queue(tracks_to_queue, position, source_id=self.playlist_id, is_infinite=is_inf)
+        self.player.set_queue(
+            tracks_to_queue, position, source_id=self.playlist_id, is_infinite=is_inf
+        )
 
     def _is_infinite(self):
         return False
 
     def on_play_clicked(self, btn):
-        if self.sort_model.get_n_items() == 0: return
-        
+        if self.sort_model.get_n_items() == 0:
+            return
+
         tracks_to_queue = []
         for i in range(self.sort_model.get_n_items()):
-             tracks_to_queue.append(self.sort_model.get_item(i).track_data)
-             
-        self.player.set_queue(tracks_to_queue, 0, source_id=self.playlist_id, is_infinite=self._is_infinite())
+            tracks_to_queue.append(self.sort_model.get_item(i).track_data)
+
+        self.player.set_queue(
+            tracks_to_queue,
+            0,
+            source_id=self.playlist_id,
+            is_infinite=self._is_infinite(),
+        )
 
     def on_shuffle_clicked(self, btn):
-        if self.sort_model.get_n_items() == 0: return
-        
+        if self.sort_model.get_n_items() == 0:
+            return
+
         tracks_to_queue = []
         for i in range(self.sort_model.get_n_items()):
-             tracks_to_queue.append(self.sort_model.get_item(i).track_data)
-             
-        self.player.set_queue(tracks_to_queue, -1, shuffle=True, source_id=self.playlist_id, is_infinite=self._is_infinite())
+            tracks_to_queue.append(self.sort_model.get_item(i).track_data)
+
+        self.player.set_queue(
+            tracks_to_queue,
+            -1,
+            shuffle=True,
+            source_id=self.playlist_id,
+            is_infinite=self._is_infinite(),
+        )
+
+    def on_copy_link_clicked(self, btn):
+        if not self.playlist_id:
+            return
+        is_album = self.playlist_id.startswith("MPRE") or self.playlist_id.startswith(
+            "OLAK"
+        )
+        link = get_yt_music_link(self.playlist_id, is_album=is_album)
+        if link:
+            clipboard = Gdk.Display.get_default().get_clipboard()
+            clipboard.set(link)
+            self._show_toast("Link copied to clipboard")
+            print(f"Copied link: {link}")
 
     def on_sort_changed(self, dropdown, pspec):
-        # Implementation in subclasses
-        pass
+        self.reorder_playlist(dropdown.get_selected())
+
+    def reorder_playlist(self, sort_type):
+        if not self.current_tracks:
+            return
+
+        if sort_type == 0:
+            if hasattr(self, "original_tracks") and self.original_tracks:
+                self.current_tracks = list(self.original_tracks)
+            else:
+                return
+        elif sort_type == 1:
+            self.current_tracks.sort(key=lambda x: x.get("title", "").lower())
+        elif sort_type == 2:
+            self.current_tracks.sort(
+                key=lambda x: (
+                    x.get("artists", [{}])[0].get("name", "").lower()
+                    if x.get("artists")
+                    else "",
+                    x.get("title", "").lower(),
+                )
+            )
+        elif sort_type == 3:
+            self.current_tracks.sort(
+                key=lambda x: (
+                    x.get("album", {}).get("name", "").lower()
+                    if isinstance(x.get("album"), dict)
+                    else str(x.get("album") or "").lower(),
+                    x.get("title", "").lower(),
+                )
+            )
+        elif sort_type == 4:  # Duration
+            self.current_tracks.sort(key=lambda x: x.get("duration_seconds", 0))
+        elif sort_type == 5:  # Year
+            self.current_tracks.sort(
+                key=lambda x: (
+                    str(x.get("year", "0"))
+                    if "year" in x
+                    else str(x.get("album", {}).get("year", "0"))
+                ),
+                reverse=True,
+            )
+
+        self.store.remove_all()
+        new_items = []
+        for i, t in enumerate(self.current_tracks):
+            item = SongItem(t, i)
+            if self.player.current_video_id == item.video_id:
+                item.is_playing = True
+            new_items.append(item)
+        self.store.splice(0, 0, new_items)
 
     def on_meta_link_activated(self, label, uri):
         if uri.startswith("artist:"):

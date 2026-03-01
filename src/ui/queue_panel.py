@@ -1,8 +1,9 @@
 import gi
+import threading
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GObject, Pango, Gdk, Gio, GLib
+from gi.repository import Gtk, GObject, Pango, Gdk, Gio, GLib
 
 
 class QueueItem(GObject.Object):
@@ -86,7 +87,7 @@ class QueueRowWidget(Gtk.Box):
         if self.model_item:
             try:
                 self.model_item.disconnect_by_func(self._on_item_property_changed)
-            except:
+            except Exception:
                 pass
 
         self.model_item = item
@@ -183,6 +184,26 @@ class QueuePanel(Gtk.Box):
         clear_btn.connect("clicked", lambda x: self.player.clear_queue())
         header.append(clear_btn)
 
+        # More Menu
+        self.action_group = Gio.SimpleActionGroup()
+        self.insert_action_group("queue", self.action_group)
+
+        action_add = Gio.SimpleAction.new(
+            "add_all_to_playlist", GLib.VariantType.new("s")
+        )
+        action_add.connect("activate", self._on_add_all_to_playlist)
+        self.action_group.add_action(action_add)
+
+        self.more_btn = Gtk.MenuButton(icon_name="view-more-symbolic")
+        self.more_btn.set_tooltip_text("More Options")
+
+        self.more_menu_model = Gio.Menu()
+        self.playlist_menu = Gio.Menu()
+        self.more_menu_model.append_submenu("Add all to Playlist", self.playlist_menu)
+        self.more_btn.set_menu_model(self.more_menu_model)
+
+        header.append(self.more_btn)
+
         self.append(header)
 
         # ListView Setup
@@ -214,6 +235,34 @@ class QueuePanel(Gtk.Box):
         self._update_shuffle_state()
         self._update_repeat_state()
 
+    def _refresh_playlists_menu(self):
+        self.playlist_menu.remove_all()
+        playlists = self.player.client.get_editable_playlists()
+        for p in playlists:
+            title = p.get("title", "Untitled")
+            pid = p.get("playlistId")
+            if pid:
+                # Use a specific action name that includes the playlist ID
+                self.playlist_menu.append(title, f"queue.add_all_to_playlist('{pid}')")
+
+    def _on_add_all_to_playlist(self, action, param):
+        playlist_id = param.get_string()
+        video_ids = [t.get("videoId") for t in self.player.queue if t.get("videoId")]
+
+        if not video_ids:
+            return
+
+        def thread_func():
+            success = self.player.client.add_playlist_items(playlist_id, video_ids)
+            if success:
+                msg = f"Added {len(video_ids)} tracks to playlist"
+                print(msg)
+                GLib.idle_add(self._show_toast, msg)
+            else:
+                GLib.idle_add(self._show_toast, "Failed to add tracks")
+
+        threading.Thread(target=thread_func, daemon=True).start()
+
     def _on_map(self, *args):
         # Refresh list when sidebar becomes visible - but only if count changed
         if self.store.get_n_items() != len(self.player.queue):
@@ -221,6 +270,7 @@ class QueuePanel(Gtk.Box):
         else:
             self._update_item_states()
 
+        self._refresh_playlists_menu()
         self._update_shuffle_state()
         self._update_repeat_state()
         GLib.idle_add(self._scroll_to_current)
@@ -354,3 +404,8 @@ class QueuePanel(Gtk.Box):
                 GLib.idle_add(self._scroll_to_current)
         finally:
             self._programmatic_update = False
+
+    def _show_toast(self, message):
+        root = self.get_root()
+        if hasattr(root, "add_toast"):
+            root.add_toast(message)

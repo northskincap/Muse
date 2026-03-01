@@ -22,82 +22,80 @@ A modern, Linux-first YouTube Music player.
 
 This is a list of all the features that are planned for Mixtapes:
 
-[x] means the feature is implemented.
-[-] means the feature is partially implemented.
-[_] means the feature is not implemented yet, but planned.
-[*] means the feature will likely not be implemented.
+✅️ means the feature is implemented.
 
-- [x] **Authentication**: Connect to YouTube Music (Browser cookies).
-- [_] **Home Page**: View charts and explore new music.
-- [-] **Library**: Access your playlists and liked songs.
-  - [-] Playlists
-    > Read only, cannot create or edit playlists yet.
-  - [x] Liked songs
-- [x] **Search**: Search for songs, albums, and artists.
-- [-] **Artist Page**: View artist details and discography.
-  - [x] Basic artist info.
-  - [_] Artist related artists.
-  - [-] Artist top tracks.
-    > Currently only the first 5 tracks are shown, need to implement a "Show more" button as seen in the Web Player which would let you see the entire discography as well.
-  - [-] Artist albums.
-    > Only the first 10 albums are shown, need to implement a "Show more" button.
-  - [-] Artist singles.
-    > Only the first 10 singles are shown, need to implement a "Show more" button.
-  - [-] Artist videos.
-    > Only the first 10 videos are shown, need to implement a "Show more" button.
-  - [-] Artist Play button
-    > The button works, but only plays the top 5 tracks.
-  - [-] Artist Shuffle button
-    > The button works, but only plays the top 5 tracks in a random order.
-  - [_] Artist Subscribe/Unsubscribe button
-    > This button should subscribe/unsubscribe the artist, not implemented yet.
-- [-] **Playlist Page**: View and play playlists.
-  - [x] Basic playlist info.
-  - [x] Playlist tracks.
-  - [x] Playlist Play button
-  - [x] Playlist Shuffle button
-  - [x] Playlist Order
-  - [x] Playlist Cover Change
-  - [_] Playlist Change Visibility
-    > Currently the playlist visibility cannot be changed.
-  - [x] Playlist Change Description
-  - [x] Playlist Change Name
-- [x] **Album Page**: View and play albums.
-  - [x] Basic album info.
-  - [x] Album tracks.
-  - [x] Album Play button
-  - [x] Album Shuffle button
-- [-] **Player**: Full playback control with queue management.
-  - [x] Play/Pause
-  - [x] Seeking
-  - [-] Queue
-    - [x] Previous/Next
-    - [x] Change order of song
-    - [x] Shuffle
-    - [x] Repeat modes (single track, loop queue)
-  - [x] Volume control
-- [_] **Caching**: Cache data to reduce latency and bandwidth usage
-- [-] **Responsive Design**: Mobile-friendly layout with adaptive UI.
+☑️ means the feature is partially implemented.
+
+🔜 means the feature is not implemented yet, but planned.
+
+❎️ means the feature will likely not be implemented.
+
+- ✅️ **Authentication**: Connect to YouTube Music (Browser cookies).
+- 🔜 **Home Page**: View charts and explore new music.
+- ☑️ **Library**: Access your playlists and liked songs.
+  - ✅️ Playlists
+  - ✅️ Liked songs
+  - ✅️ Artists
+  - 🔜 Albums
+  - 🔜 Uploads
+- ✅️ **Search**: Search for songs, albums, and artists.
+- ☑️ **Artist Page**: View artist details and discography.
+  - ✅️ Basic artist info.
+  - 🔜 Artist related artists.
+  - ✅️ Artist top tracks.
+  - ✅️ Artist albums.
+  - ✅️ Artist singles/EPs.
+  - ☑️ Artist videos.
+    > Only the first 10 videos are shown, "Show more" in fact doesn't show any more videos yet.
+  - ✅️ Artist Play button
+  - ✅️ Artist Shuffle button
+  - ✅️ Artist Subscribe/Unsubscribe button
+- ☑️ **Playlist Page**: View and play playlists.
+  - ✅️ Basic playlist info.
+  - ✅️ Playlist tracks.
+  - ✅️ Playlist Play button
+  - ✅️ Playlist Shuffle button
+  - ✅️ Playlist Order
+  - ✅️ Playlist Cover Change
+  - ✅️ Playlist Change Visibility
+  - ✅️ Playlist Change Description
+  - ✅️ Playlist Change Name
+- ✅️ **Album Page**: View and play albums.
+  - ✅️ Basic album info.
+  - ✅️ Album tracks.
+  - ✅️ Album Play button
+  - ✅️ Album Shuffle button
+- ✅️ **Player**: Full playback control with queue management.
+  - ✅️ Play/Pause
+  - ✅️ Seeking
+  - ✅️ Queue
+    - ✅️ Previous/Next
+    - ✅️ Change order of song
+    - ✅️ Shuffle
+    - ✅️ Repeat modes (single track, loop queue)
+  - ✅️ Volume control
+- 🔜 **Caching**: Cache data to reduce latency and bandwidth usage
+- ☑️ **Responsive Design**: Mobile-friendly layout with adaptive UI.
   > Desktop needs to use the empty space better.
-- [x] **MPRIS Support**: Control playback from system media controls.
-- [_] **Cover Art Tint**: Tint libadwaita to match the cover art of the current song, kinda like Material You.
-- [_] **Discord RPC**: Show your current track on Discord.
-- [_] **Lyrics**: View synchronized lyrics, maybe even using BetterLyrics API.
-- [-] **Settings**: Configure app preferences (theme, audio quality, etc.).
+- ✅️ **MPRIS Support**: Control playback from system media controls.
+- 🔜 **Cover Art Tint**: Tint libadwaita to match the cover art of the current song, kinda like Material You.
+- 🔜 **Discord RPC**: Show your current track on Discord.
+- 🔜 **Lyrics**: View synchronized lyrics, maybe even using BetterLyrics API.
+- ☑️ **Settings**: Configure app preferences (theme, audio quality, etc.).
   > Currently, it only has an option to sign out.
-- [_] **Download Support**: Download tracks for offline playback, even as local files.
-- [_] **Radio / Mixes**: Start a radio station from a song or artist.
-- [_] **Dedicated Data Directory**: Move all the data like cookies, cache, etc. to a dedicated directory instead of the project root directory.
-- [_] **Background Playback**: Play music in the background, even when the main window is closed.
-- [-] **Flatpak**: Package Mixtapes as a Flatpak.
-  - [x] Flatpak build
-  - [-] Flathub release
+- 🔜 **Download Support**: Download tracks for offline playback, even as local files.
+- 🔜 **Radio / Mixes**: Start a radio station from a song or artist.
+- 🔜 **Dedicated Data Directory**: Move all the data like cookies, cache, etc. to a dedicated directory instead of the project root directory.
+- 🔜 **Background Playback**: Play music in the background, even when the main window is closed.
+- ☑️ **Flatpak**: Package Mixtapes as a Flatpak.
+  - ✅️ Flatpak build
+  - ☑️ Flathub release
     > Depends on App icon.
-  - [_] App icon
-- [_] **GNOME Circle**: Maybe get Mixtapes on GNOME Circle?
+  - 🔜 App icon
+- 🔜 **GNOME Circle**: Maybe get Mixtapes on GNOME Circle?
   > Still considering it, might not happen.
-- [_] **AppImage**: Package Mixtapes as an AppImage.
-- [x] **AUR**: Package Mixtapes as an AUR package.
+- 🔜 **AppImage**: Package Mixtapes as an AppImage.
+- ✅️ **AUR**: Package Mixtapes as an AUR package.
 
 If you got any more ideas or bug reports, feel free to open an issue.
 

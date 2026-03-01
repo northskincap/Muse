@@ -1,15 +1,13 @@
 import gi
-
-gi.require_version("Gst", "1.0")
-from gi.repository import Gst, GObject
-from yt_dlp import YoutubeDL
 import threading
 import random
 import os
 
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst, GObject, GLib
+from yt_dlp import YoutubeDL
 from mprisify.server import Server
 from player.mpris import MuseMprisAdapter, MuseEventAdapter
-
 from api.client import MusicClient
 
 
@@ -94,20 +92,24 @@ class Player(GObject.Object):
         self.connect("volume-changed", self._on_mpris_volume_changed)
 
     def _on_mpris_state_changed(self, obj, state):
+        print(f"DEBUG-MPRIS-STATE-START: state={state}")
         if hasattr(self, "mpris_events"):
             # Explicitly tell the server the PlaybackStatus changed
             self.mpris_events.on_playpause()
             # Update metadata because length or 'CanGoNext' might have changed
             self.mpris_events.on_player_all()
+        print("DEBUG-MPRIS-STATE-END")
 
     def _on_mpris_metadata_changed(
         self, obj, title, artist, thumb, video_id, like_status
     ):
+        print(f"DEBUG-MPRIS-META-START: video_id={video_id}")
         if hasattr(self, "mpris_events"):
             # Trigger the 'Metadata' property update
             self.mpris_events.on_title()
             # Update UI-related flags like CanGoNext/Previous
             self.mpris_events.on_player_all()
+        print("DEBUG-MPRIS-META-END")
 
     def _on_mpris_progression(self, obj, pos, dur):
         # We don't usually emit D-Bus signals for every progression tick
@@ -128,6 +130,10 @@ class Player(GObject.Object):
             "thumb": thumbnail_url,
         }
         self.set_queue([track])
+
+    def play_tracks(self, tracks):
+        """Sets the queue to the given tracks and starts playback of the first one."""
+        self.set_queue(tracks, 0)
 
     def set_queue(
         self, tracks, start_index=0, shuffle=False, source_id=None, is_infinite=False
@@ -361,29 +367,37 @@ class Player(GObject.Object):
     def _play_current_index(self):
         if 0 <= self.current_queue_index < len(self.queue):
             track = self.queue[self.current_queue_index]
-            video_id = track.get("videoId")
-            title = track.get("title", "Unknown")
+            video_id = str(track.get("videoId") or "")
+            title = str(track.get("title") or "Unknown")
             artist = track.get("artist", "")
             thumb = track.get("thumb")
-            like_status = track.get("likeStatus", "INDIFFERENT")
+            like_status = str(track.get("likeStatus") or "INDIFFERENT")
+
+            print(
+                f"DEBUG-PLAY: index={self.current_queue_index} video_id={video_id}",
+                flush=True,
+            )
 
             # Metadata Normalization (Handle raw ytmusicapi data)
-            if not artist and "artists" in track:
+            if not artist and track.get("artists"):
                 artist = ", ".join(
-                    [a.get("name", "") for a in track.get("artists", [])]
+                    [str(a.get("name", "")) for a in track.get("artists") if a]
                 )
 
             if not artist:
                 artist = "Unknown"
 
-            if not thumb and "thumbnails" in track:
-                thumbs = track.get("thumbnails", [])
+            if not thumb and track.get("thumbnails"):
+                thumbs = track.get("thumbnails")
                 if thumbs:
                     thumb = thumbs[-1]["url"]
 
             # Handle artist list if needed (legacy check)
             if isinstance(artist, list):
-                artist = ", ".join([a.get("name", "") for a in artist])
+                artist = ", ".join([str(a.get("name", "")) for a in artist])
+
+            artist = str(artist or "Unknown")
+            thumb = str(thumb or "")
 
             self._load_internal(video_id, title, artist, thumb, like_status)
 
@@ -392,36 +406,37 @@ class Player(GObject.Object):
     ):
         self.current_video_id = video_id
 
-        # Set loading FIRST, then stop pipeline — prevents a "stopped" flash
         self._is_loading = True
-        self.player.set_state(Gst.State.NULL)
-        # Don't call _update_logical_state here — we'll emit once after metadata
+        try:
+            self.player.set_state(Gst.State.NULL)
+        except Exception as e:
+            print(f"set_state ERROR: {e}")
 
         self.current_video_id = video_id
-
-        # Reset state
         self.duration = -1
         self.emit("progression", 0.0, 0.0)
 
-        # Increment generation to invalidate previous threads
         self.load_generation += 1
         current_gen = self.load_generation
 
-        # Emit metadata immediately for UI responsiveness
-        self.emit(
+        GLib.idle_add(
+            self.emit,
             "metadata-changed",
-            title,
-            artist,
-            thumbnail_url if thumbnail_url else "",
-            video_id,
-            like_status,
+            str(title),
+            str(artist),
+            str(thumbnail_url if thumbnail_url else ""),
+            str(video_id),
+            str(like_status),
         )
-        # Now emit the loading state (only transition: whatever -> loading)
-        self._update_logical_state()
-        if hasattr(self, "mpris_events"):
-            self.mpris_events.on_player_all()
 
-        # Run yt-dlp in a thread
+        GLib.idle_add(self._update_logical_state)
+
+        if hasattr(self, "mpris_events"):
+            try:
+                self.mpris_events.on_player_all()
+            except Exception as e:
+                print(f"mpris ERROR: {e}")
+
         thread = threading.Thread(
             target=self._fetch_and_play,
             args=(video_id, title, artist, thumbnail_url, like_status, current_gen),
@@ -550,7 +565,7 @@ class Player(GObject.Object):
     ):
         if generation != self.load_generation:
             print(
-                f"DEBUG: Stale load generation {generation} (current {self.load_generation}). Aborting."
+                f"Stale load generation {generation} (current {self.load_generation}). Aborting."
             )
             return
         import os
@@ -563,23 +578,16 @@ class Player(GObject.Object):
         try:
             # Inject headers/cookies if authenticated
             if self.client.is_authenticated() and self.client.api:
-                print(
-                    f"DEBUG: Client is authenticated. Headers keys: {list(self.client.api.headers.keys())}"
-                )
                 # Create Netscape cookie file
                 cookie_file = self._create_cookie_file(self.client.api.headers)
                 if cookie_file:
-                    print(f"DEBUG: Generated cookie file at {cookie_file}")
                     opts["cookiefile"] = cookie_file
-                else:
-                    print("DEBUG: No cookie file generated (Cookie header missing?)")
 
                 # Still pass User-Agent and Authorization if available
                 http_headers = {}
                 if "User-Agent" in self.client.api.headers:
                     http_headers["User-Agent"] = self.client.api.headers["User-Agent"]
                 if "Authorization" in self.client.api.headers:
-                    print("DEBUG: Passing Authorization header to yt-dlp")
                     http_headers["Authorization"] = self.client.api.headers[
                         "Authorization"
                     ]
@@ -587,7 +595,7 @@ class Player(GObject.Object):
                 if http_headers:
                     opts["http_headers"] = http_headers
             else:
-                print("DEBUG: Client NOT authenticated")
+                pass
 
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -643,7 +651,7 @@ class Player(GObject.Object):
                 # Check generation again before playing
                 if generation != self.load_generation:
                     print(
-                        f"DEBUG: Stale load generation {generation} before playbin set. Aborting."
+                        f"Stale load generation {generation} before playbin set. Aborting."
                     )
                     if cookie_file and os.path.exists(cookie_file):
                         os.remove(cookie_file)
@@ -666,7 +674,6 @@ class Player(GObject.Object):
             if cookie_file and os.path.exists(cookie_file):
                 try:
                     os.remove(cookie_file)
-                    print(f"DEBUG: Cleaned up cookie file {cookie_file}")
                 except:
                     pass
 
@@ -695,33 +702,25 @@ class Player(GObject.Object):
             self.emit("state-changed", "stopped")
 
     def _update_logical_state(self):
-        """Evaluates internal flags and GStreamer state to emit a stable logical state.
-
-        We only track loading (waiting for yt-dlp) and GStreamer pipeline states.
-        GStreamer's playbin handles stream buffering internally — we don't need to
-        show a spinner for mid-stream buffer refills.
-        """
-        ret, gst_state, pending = self.player.get_state(0)
-
         new_state = "stopped"
-
-        if self._is_loading:
-            new_state = "loading"
-        elif gst_state == Gst.State.PLAYING:
-            new_state = "playing"
-        elif gst_state == Gst.State.PAUSED:
-            # Only show paused if we're not loading (loading uses NULL->PAUSED->PLAYING)
-            if not self._is_loading:
+        if self.player:
+            state = self.player.get_state(0)[1]
+            if state == Gst.State.PLAYING:
+                new_state = "playing"
+            elif state == Gst.State.PAUSED:
                 new_state = "paused"
 
         if new_state != self._current_logical_state:
             self._current_logical_state = new_state
-            self.emit("state-changed", new_state)
+            try:
+                GLib.idle_add(self.emit, "state-changed", new_state)
+            except Exception as e:
+                pass
 
     def on_message(self, bus, message):
         t = message.type
         if t == Gst.MessageType.EOS:
-            print("EOS Reached. Advancing to next track.")
+            print("EOS Reached. Advancing to next track.", flush=True)
             self.stop()
             if self.repeat_mode == "track":
                 GObject.idle_add(self._play_current_index)

@@ -201,8 +201,12 @@ class MainWindow(Adw.ApplicationWindow):
         # 4. Set the player as the sheet
         self.bottom_sheet.set_sheet(self.expanded_player)
 
-        # 5. Set the window content to the BottomSheet
-        self.set_content(self.bottom_sheet)
+        # 5. Initialize Toast Overlay
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toast_overlay.set_child(self.bottom_sheet)
+
+        # 6. Set the window content to the ToastOverlay
+        self.set_content(self.toast_overlay)
 
         # Initialize Pages (Must be before breakpoint)
         self.init_pages()
@@ -227,8 +231,9 @@ class MainWindow(Adw.ApplicationWindow):
         breakpoint.connect("unapply", self._on_mobile_breakpoint_unapply)
         self.add_breakpoint(breakpoint)
 
-        # Check Authentication
-        self.check_auth()
+    def add_toast(self, message):
+        toast = Adw.Toast.new(message)
+        self.toast_overlay.add_toast(toast)
 
     def _get_active_playlist_page(self):
         # Helper to find if visible view is a Playlist Page
@@ -335,7 +340,7 @@ class MainWindow(Adw.ApplicationWindow):
         about = Adw.AboutDialog()
         about.set_application_name("Mixtapes")
         about.set_developer_name("POCOGuy")
-        about.set_version("alpha 202603010114")
+        about.set_version("alpha 202603020016")
         about.set_website("https://www.pocoguy.com/")
         about.set_copyright("© 2026 POCOGuy")
         about.set_license_type(Gtk.License.GPL_3_0)
@@ -629,6 +634,27 @@ class MainWindow(Adw.ApplicationWindow):
         artist_page.connect(
             "header-title-changed", self.on_playlist_header_title_changed
         )  # Reuse same handler
+
+    def open_discography(
+        self, channel_id, title, browse_id=None, params=None, initial_items=None
+    ):
+        if self.search_bar.get_search_mode():
+            self.search_bar.set_search_mode(False)
+
+        active_nav = self.view_stack.get_visible_child()
+        if not isinstance(active_nav, Adw.NavigationView):
+            print("Error: Active view is not a NavigationView")
+            return
+
+        from ui.pages.discography import DiscographyPage
+
+        disco_page = DiscographyPage(self.player, self.open_playlist)
+
+        nav_page = Adw.NavigationPage(child=disco_page, title=title)
+
+        active_nav.push(nav_page)
+
+        disco_page.load_discography(channel_id, title, browse_id, params, initial_items)
 
     def on_player_bar_artist_click(self):
         pass

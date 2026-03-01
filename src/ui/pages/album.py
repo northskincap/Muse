@@ -8,7 +8,7 @@ from ui.models.song import SongItem
 class AlbumPage(BasePlaylistPage):
     def __init__(self, player, *args, **kwargs):
         super().__init__(player, *args, **kwargs)
-        self.sort_row.set_visible(False)  # Albums have fixed order
+        # self.sort_row.set_visible(False)
 
     def load_album(self, album_id, initial_data=None):
         if self.playlist_id != album_id:
@@ -59,20 +59,25 @@ class AlbumPage(BasePlaylistPage):
                 else:
                     parts.append(name)
             author = ", ".join(parts)
-            
+
             # Infer Album Type
-            if track_count == 1: album_type = "Single"
-            elif 2 <= track_count <= 6: album_type = "EP"
-            else: album_type = "Album"
-            
+            if track_count == 1:
+                album_type = "Single"
+            elif 2 <= track_count <= 6:
+                album_type = "EP"
+            else:
+                album_type = "Album"
+
             meta1_parts = [album_type]
-            if year: meta1_parts.append(str(year))
-            if author: meta1_parts.append(author)
+            if year:
+                meta1_parts.append(str(year))
+            if author:
+                meta1_parts.append(author)
             meta1 = " • ".join(meta1_parts)
-            
+
             song_text = "song" if track_count == 1 else "songs"
             meta2 = f"{track_count} {song_text}"
-            
+
             # High-Res Cover art hack
             if thumbnails:
                 for t in thumbnails:
@@ -83,12 +88,26 @@ class AlbumPage(BasePlaylistPage):
                     if not t.get("thumbnails"):
                         t["thumbnails"] = thumbnails
 
-            GObject.idle_add(self.update_ui, title, description, meta1, meta2, thumbnails, tracks)
+            GObject.idle_add(
+                self.update_ui, title, description, meta1, meta2, thumbnails, tracks
+            )
             self.is_fully_loaded = True
-            
+
         except Exception as e:
             print(f"Error fetching album: {e}")
 
-    def update_ui(self, title, description, meta1, meta2, thumbnails, tracks, append=False, total_tracks=None):
-        super().update_ui(title, description, meta1, meta2, thumbnails, tracks, append, total_tracks)
-        self.sort_row.set_visible(False)
+    def update_ui(
+        self,
+        title,
+        description,
+        meta1,
+        meta2,
+        thumbnails,
+        tracks,
+        append=False,
+        total_tracks=None,
+    ):
+        super().update_ui(
+            title, description, meta1, meta2, thumbnails, tracks, append, total_tracks
+        )
+        # self.sort_row.set_visible(False)
